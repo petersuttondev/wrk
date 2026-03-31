@@ -1,0 +1,25 @@
+[project]
+name = "wrk"
+version = "0.1.0"
+requires-python = ">= 3.14"
+
+[project.scripts]
+wrk = "wrk.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+strictListInference = true
+strictDictionaryInference = true
+enableTypeIgnoreComments = false
+deprecateTypingAliases = true
+reportUnusedImport = "error"
+
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.format]
+quote-style = "single"
