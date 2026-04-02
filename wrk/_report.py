@@ -6,13 +6,11 @@ import subprocess
 from sqlite3 import Cursor
 
 from wrk._database import (
-    Event,
-    EventType,
     StartEvent,
     StopEvent,
+    fetch_events,
     open_cursor,
     open_database,
-    sql,
 )
 
 
@@ -25,23 +23,7 @@ def _format_time(datetime: DateTime) -> str:
 
 
 def _with_database_print_report(cursor: Cursor) -> None:
-    cursor.execute(
-        sql("""
-            SELECT e.type, e.timestamp FROM events AS e ORDER BY e.timestamp
-        """)
-    )
-
-    events: list[Event] = []
-    for row in cursor:
-        event_type = EventType(row[0])
-        timestamp = DateTime.fromtimestamp(row[1])
-        match event_type:
-            case EventType.START:
-                event = StartEvent(timestamp)
-            case EventType.STOP:
-                event = StopEvent(timestamp)
-        events.append(event)
-
+    events = fetch_events(cursor)
     string = StringIO()
     writer = csv.writer(string)
 

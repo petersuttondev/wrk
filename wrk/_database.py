@@ -3,6 +3,7 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import datetime as DateTime
 from enum import Enum, unique
+import os
 from pathlib import Path
 from sqlite3 import Connection, Cursor, connect
 from typing import ClassVar, ContextManager, Final, Literal, final
@@ -46,6 +47,24 @@ def transaction(conn: Connection) -> Generator[Cursor]:
         yield cursor
 
 
+def _get_database_path() -> Path:
+    name = 'database.sqlite3'
+
+    if 'WRK_DEV' in os.environ:
+        print('Using development database')
+        project_dir = Path(__file__).resolve(strict=True).parents[1]
+        return project_dir / 'local' / name
+
+    path = os.environ.get('WRK_DATABASE', None)
+
+    if path is not None:
+        return Path(path)
+
+    parent_dir = Path.home() / '.local/share/wrk'
+    parent_dir.mkdir(parents=True, exist_ok=True)
+    return parent_dir / name
+
+
 _CREATE_EVENTS_TABLE: Final = sql(r"""
     CREATE TABLE IF NOT EXISTS events (
         id        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
@@ -57,16 +76,32 @@ _CREATE_EVENTS_TABLE: Final = sql(r"""
 
 @contextmanager
 def open_database() -> Generator[Connection]:
-    parent_dir = Path.home() / '.local/share/wrk'
-    parent_dir.mkdir(parents=True, exist_ok=True)
-    database_path = parent_dir / 'database.sqlite3'
-    with closing(connect(database_path, autocommit=True)) as conn:
+    with closing(connect(_get_database_path(), autocommit=True)) as conn:
         with open_cursor(conn) as cursor:
             cursor.execute('PRAGMA journal_mode = WAL')
         conn.autocommit = False
         with transaction(conn) as cursor:
             cursor.execute(_CREATE_EVENTS_TABLE)
         yield conn
+
+
+def fetch_events(cursor: Cursor) -> list[Event]:
+    cursor.execute(
+        sql("""
+            SELECT e.type, e.timestamp FROM events AS e ORDER BY e.timestamp
+        """)
+    )
+    events: list[Event] = []
+    for row in cursor:
+        event_type = EventType(row[0])
+        timestamp = DateTime.fromtimestamp(row[1])
+        match event_type:
+            case EventType.START:
+                event = StartEvent(timestamp)
+            case EventType.STOP:
+                event = StopEvent(timestamp)
+        events.append(event)
+    return events
 
 
 def insert_event(conn: Connection, event: Event) -> None:

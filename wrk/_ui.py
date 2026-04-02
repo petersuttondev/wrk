@@ -1,11 +1,13 @@
 from datetime import UTC, datetime as DateTime, timedelta as TimeDelta
+from pathlib import Path
 import signal
 from sqlite3 import Connection
 import sys
-from typing import Final
+from typing import Final, final, override
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -18,23 +20,25 @@ from wrk._database import (
     Event,
     StartEvent,
     StopEvent,
+    fetch_events,
     insert_event,
+    open_cursor,
     open_database,
 )
 
 
 class State:
     def __init__(self) -> None:
-        self.timeline: Final[list[Event]] = []
+        self.events: Final[list[Event]] = []
 
     @property
     def is_started(self) -> bool:
-        return bool(self.timeline) and isinstance(self.timeline[-1], StartEvent)
+        return bool(self.events) and isinstance(self.events[-1], StartEvent)
 
     def duration(self) -> TimeDelta:
         start: DateTime | None = None
         duration = TimeDelta()
-        for event in self.timeline:
+        for event in self.events:
             match event:
                 case StartEvent(timestamp=start):
                     pass
@@ -50,13 +54,29 @@ class State:
 
     def start(self) -> StartEvent:
         event = StartEvent(DateTime.now(UTC))
-        self.timeline.append(event)
+        self.events.append(event)
         return event
 
     def stop(self) -> StopEvent:
         event = StopEvent(DateTime.now(UTC))
-        self.timeline.append(event)
+        self.events.append(event)
         return event
+
+
+@final
+class _Label:
+    @override
+    def __init__(self, state: State, font: QFont) -> None:
+        self.state: Final = state
+        self.widget: Final = QLabel()
+        self.widget.setFont(font)
+        self.update()
+
+    def update(self) -> None:
+        s = round(self.state.duration().total_seconds())
+        h, s = divmod(s, 3_600)
+        m, s = divmod(s, 60)
+        self.widget.setText(f'{h:02d}:{m:02d}:{s:02d}')
 
 
 def _with_database_main(conn: Connection, state: State) -> None:
@@ -66,56 +86,55 @@ def _with_database_main(conn: Connection, state: State) -> None:
         app.quit()
 
     signal.signal(signal.SIGINT, handle_sigint)
-    window = QMainWindow()
-    window.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-    window.setStyleSheet('background-color: red;')
-    window.show()
-    layout = QVBoxLayout()
-    window.setLayout(layout)
     font = app.font()
     font.setFamily('DSEG7 Classic')
-    font.setPointSize(24)
+    font.setPointSize(12)
     font.setWeight(QFont.Weight.Bold)
-    label = QLabel()
-    label.setFont(font)
-
-    def set_label_text() -> None:
-        s = round(state.duration().total_seconds())
-        h, s = divmod(s, 3_600)
-        m, s = divmod(s, 60)
-        label.setText(f'{h:02d}:{m:02d}:{s:02d}')
-
-    set_label_text()
-    layout.addWidget(label)
-
-    def handle_toggle_click() -> None:
-        if state.is_started:
-            insert_event(conn, state.stop())
-            window.setStyleSheet('background-color: red;')
-        else:
-            insert_event(conn, state.start())
-            window.setStyleSheet('background-color: lime;')
-
-    timer = QTimer(interval=1_000 // 2)
-    timer.timeout.connect(set_label_text)
-    timer.start()
+    label = _Label(state, font)
+    layout = QVBoxLayout()
+    layout.addWidget(label.widget)
     widget = QWidget()
     widget.setLayout(layout)
+    window = QMainWindow()
+
+    def set_window_color(color: str) -> None:
+        window.setStyleSheet(f'background-color: {color};')
+
+    set_window_color('red')
+    window.show()
     window.setCentralWidget(widget)
-    window.setFixedSize(layout.sizeHint())
+    window.setFixedSize(widget.sizeHint())
+    screen_width = app.screens()[0].availableGeometry().width()
+    window_width = window.geometry().width()
+    window.move(screen_width - window_width, 0)
+    media = QMediaPlayer(window)
+    audio_output = QAudioOutput(parent=window)
+    media.setAudioOutput(audio_output)
+    parent_dir = Path(__file__).resolve(strict=True).parent
+    media.setSource(QUrl.fromLocalFile(str(parent_dir / 'alert.wav')))
+
+    def handle_shortcut() -> None:
+        media.play()
+        if state.is_started:
+            insert_event(conn, state.stop())
+            set_window_color('red')
+        else:
+            insert_event(conn, state.start())
+            set_window_color('lime')
+
     shortcut = QShortcut(QKeySequence('Space'), window)
-    shortcut.activated.connect(handle_toggle_click)
-    screen = app.screens()[0]
-    g = screen.availableGeometry()
-    wg = window.geometry()
-    x = g.width() - wg.width()
-    window.move(x, 0)
+    shortcut.activated.connect(handle_shortcut)
+    timer = QTimer(interval=1_000 // 2)
+    timer.timeout.connect(label.update)
+    timer.start()
     app.exec()
 
 
 def run_ui() -> None:
     state = State()
     with open_database() as conn:
+        with open_cursor(conn) as cursor:
+            state.events.extend(fetch_events(cursor))
         try:
             _with_database_main(conn, state)
         finally:
