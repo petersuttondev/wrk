@@ -104,7 +104,7 @@ def _with_database_main(conn: Connection, state: State) -> None:
     window.show()
     window.setCentralWidget(widget)
     window.setFixedSize(widget.sizeHint())
-    screen_width = app.screens()[0].availableGeometry().width()
+    screen_width = app.screens()[0].availableVirtualGeometry().width()
     window_width = window.geometry().width()
     window.move(screen_width - window_width, 0)
     media = QMediaPlayer(window)
