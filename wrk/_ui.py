@@ -40,9 +40,9 @@ class State:
         duration = TimeDelta()
         for event in self.events:
             match event:
-                case StartEvent(timestamp=start):
+                case StartEvent(created_at=start):
                     pass
-                case StopEvent(timestamp=stop):
+                case StopEvent(created_at=stop):
                     if start is None:
                         raise ValueError()
                     duration += stop - start
