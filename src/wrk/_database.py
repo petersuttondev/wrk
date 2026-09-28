@@ -62,7 +62,9 @@ def _get_database_path() -> Path:
     if path is not None:
         return Path(path)
 
-    parent_dir = Path.home() / '.local/share/wrk'
+    import xdg_base_dirs
+
+    parent_dir = xdg_base_dirs.xdg_state_home() / 'wrk'
     parent_dir.mkdir(parents=True, exist_ok=True)
     return parent_dir / name
 
