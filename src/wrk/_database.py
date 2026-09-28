@@ -1,9 +1,9 @@
+import os
 from collections.abc import Generator
 from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import datetime as DateTime
 from enum import Enum, unique
-import os
 from pathlib import Path
 from sqlite3 import Connection, Cursor, connect
 from typing import ClassVar, ContextManager, Final, Literal, final

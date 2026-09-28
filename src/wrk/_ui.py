@@ -1,8 +1,10 @@
-from datetime import UTC, datetime as DateTime, timedelta as TimeDelta
-from pathlib import Path
 import signal
-from sqlite3 import Connection
 import sys
+from datetime import UTC
+from datetime import datetime as DateTime
+from datetime import timedelta as TimeDelta
+from pathlib import Path
+from sqlite3 import Connection
 from typing import Final, final, override
 
 from PySide6.QtCore import QTimer, QUrl

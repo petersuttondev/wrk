@@ -1,8 +1,8 @@
 import csv
+import subprocess
+from datetime import datetime as DateTime
 from io import StringIO
 from itertools import batched
-from datetime import datetime as DateTime
-import subprocess
 from sqlite3 import Cursor
 
 from wrk._database import (
