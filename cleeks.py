@@ -40,8 +40,9 @@ def install() -> None:
         _args(
             'pip',
             'install',
+            '--break-system-packages',
             ('--editable', _get_project_dir()),
-            ('--config-settings', 'editable_mode=strict'),
+            ('--config-settings', 'editable_mode=lax'),
         ),
         check=True,
     )
@@ -56,4 +57,7 @@ def uninstall() -> None:
         pyproject = tomllib.load(file)
 
     name = pyproject['project']['name']
-    subprocess.run(('pip', 'uninstall', '--yes', name), check=True)
+    subprocess.run(
+        ('pip', 'uninstall', '--break-system-packages', '--yes', name),
+        check=True,
+    )
