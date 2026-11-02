@@ -1,15 +1,14 @@
 import os
 from collections.abc import Generator
-from contextlib import closing, contextmanager
+from contextlib import AbstractContextManager, closing, contextmanager
 from dataclasses import dataclass
 from datetime import datetime as DateTime
 from enum import Enum, unique
 from pathlib import Path
 from sqlite3 import Connection, Cursor, connect
-from typing import ClassVar, ContextManager, Final, Literal, final
+from typing import ClassVar, Final, Literal, final
 
 
-@final
 @unique
 class EventType(Enum):
     START = 0
@@ -39,7 +38,7 @@ def sql(text: str) -> str:
     return text
 
 
-def open_cursor(conn: Connection) -> ContextManager[Cursor]:
+def open_cursor(conn: Connection) -> AbstractContextManager[Cursor]:
     return closing(conn.cursor())
 
 

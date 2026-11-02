@@ -29,6 +29,7 @@ from wrk._database import (
 )
 
 
+@final
 class State:
     def __init__(self) -> None:
         self.events: Final[list[Event]] = []
@@ -100,7 +101,7 @@ def _with_database_main(conn: Connection, state: State) -> None:
     window = QMainWindow()
 
     def set_window_color(color: str) -> None:
-        window.setStyleSheet(f'background-color: {color};')
+        window.setStyleSheet(f'background-color: {color}; color: black;')
 
     set_window_color('red')
     window.show()
